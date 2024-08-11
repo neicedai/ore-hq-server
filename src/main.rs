@@ -633,10 +633,7 @@ fn process_message(msg: Message, who: SocketAddr, client_channel: UnboundedSende
                     }
 
                     let ts = u64::from_le_bytes(ts);
-
                     let now = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_secs();
-
-
                     let time_since = now - ts;
                     if time_since > 5 {
                         error!("Client tried to ready up with expired signed message");
@@ -653,14 +650,12 @@ fn process_message(msg: Message, who: SocketAddr, client_channel: UnboundedSende
                 2 => {
                     // parse solution from message data
                     let mut solution_bytes = [0u8; 16];
-                    // extract (16 u8's) from data for hash digest
                     let mut b_index = 1;
                     for i in 0..16 {
                         solution_bytes[i] = d[i + b_index];
                     }
                     b_index += 16;
 
-                    // extract 64 bytes (8 u8's)
                     let mut nonce = [0u8; 8];
                     for i in 0..8 {
                         nonce[i] = d[i + b_index];
@@ -686,27 +681,46 @@ fn process_message(msg: Message, who: SocketAddr, client_channel: UnboundedSende
                             if sig.verify(&pubkey.to_bytes(), &hash_nonce_message) {
                                 let solution = Solution::new(solution_bytes, nonce);
 
+                                // 判断难度值并处理提交
+                                if solution.difficulty >= 22 {
+                                    let max_retries = 3;
+                                    let mut attempt = 0;
+                                    let mut submitted = false;
+
+                                    while attempt < max_retries && !submitted {
+                                        if let Err(e) = submit_solution(&solution).await {
+                                            eprintln!("Failed to submit solution, attempt {}: {:?}", attempt + 1, e);
+                                            attempt += 1;
+                                            sleep(Duration::from_secs(1)).await; // 等待一段时间后重试
+                                        } else {
+                                            println!("Solution submitted successfully.");
+                                            submitted = true;
+                                        }
+                                    }
+
+                                    if !submitted {
+                                        eprintln!("Max retries reached. Failed to submit solution.");
+                                    }
+                                } else {
+                                    println!("Solution difficulty is too low, skipping submission.");
+                                }
+
                                 let msg = ClientMessage::BestSolution(who, solution, pubkey);
                                 let _ = client_channel.send(msg);
                             } else {
                                 error!("Client submission sig verification failed.");
                             }
-
                         } else {
                             error!("Failed to parse into Signature.");
                         }
-
-
                     } else {
                         error!("Failed to parse signed message from client.");
                     }
-
                 },
                 _ => {
                     println!(">>> {} sent an invalid message", who);
                 }
             }
-
         },
         Message::Close(c) => {
             if let Some(cf) = c {
@@ -728,6 +742,13 @@ fn process_message(msg: Message, who: SocketAddr, client_channel: UnboundedSende
     }
 
     ControlFlow::Continue(())
+}
+
+// 假设的提交解决方案函数
+async fn submit_solution(solution: &Solution) -> Result<(), Box<dyn std::error::Error>> {
+    // 实现提交逻辑
+    // 例如，通过 HTTP 请求或 WebSocket 提交解决方案
+    Ok(())
 }
 
 async fn client_message_handler_system(
