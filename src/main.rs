@@ -16,29 +16,13 @@ use tower_http::trace::{DefaultMakeSpan, TraceLayer};
 use tracing::{error, info};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use tokio::time::sleep;
-use std::time::Duration;
+
 
 
 const MIN_DIFF: u32 = 8;
 const MIN_HASHPOWER: u64 = 5;
 
-struct Solution {
-    d: [u8; 16],
-    n: u64,
-}
 
-impl Solution {
-    fn new(d: [u8; 16], n: u64) -> Self {
-        Solution { d, n }
-    }
-
-    // 添加一个方法来检查难度值，假设是通过 nonce 来计算的
-    fn difficulty(&self) -> u32 {
-        // 这里需要根据实际情况计算难度值
-        // 这是一个示例
-        self.n.count_ones() // 举例：返回 nonce 的位数
-    }
-}
 
 // 提交解决方案函数
 async fn submit_solution(solution: &Solution) -> Result<(), Box<dyn std::error::Error>> {
