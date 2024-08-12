@@ -15,11 +15,36 @@ use tokio::{io::AsyncReadExt, sync::{mpsc::{UnboundedReceiver, UnboundedSender},
 use tower_http::trace::{DefaultMakeSpan, TraceLayer};
 use tracing::{error, info};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use tokio::time::sleep;
+use std::time::Duration;
 
 
 const MIN_DIFF: u32 = 8;
 const MIN_HASHPOWER: u64 = 5;
 
+struct Solution {
+    d: [u8; 16],
+    n: u64,
+}
+
+impl Solution {
+    fn new(d: [u8; 16], n: u64) -> Self {
+        Solution { d, n }
+    }
+
+    // 添加一个方法来检查难度值，假设是通过 nonce 来计算的
+    fn difficulty(&self) -> u32 {
+        // 这里需要根据实际情况计算难度值
+        // 这是一个示例
+        self.n.count_ones() // 举例：返回 nonce 的位数
+    }
+}
+
+// 提交解决方案函数
+async fn submit_solution(solution: &Solution) -> Result<(), Box<dyn std::error::Error>> {
+    // 实现提交逻辑
+    Ok(())
+}
 
 struct AppState {
     sockets: HashMap<SocketAddr, (Pubkey, Mutex<SplitSink<WebSocket, Message>>)>
@@ -608,7 +633,8 @@ async fn handle_socket(mut socket: WebSocket, who: SocketAddr, who_pubkey: Pubke
     info!("Client: {} disconnected!", who_pubkey.to_string());
 }
 
-fn process_message(msg: Message, who: SocketAddr, client_channel: UnboundedSender<ClientMessage>) -> ControlFlow<(), ()> {
+// 处理消息的函数
+async fn process_message(msg: Message, who: SocketAddr, client_channel: UnboundedSender<ClientMessage>) -> ControlFlow<(), ()> {
     match msg {
         Message::Text(t) => {
             println!(">>> {who} sent str: {t:?}");
@@ -682,7 +708,7 @@ fn process_message(msg: Message, who: SocketAddr, client_channel: UnboundedSende
                                 let solution = Solution::new(solution_bytes, nonce);
 
                                 // 判断难度值并处理提交
-                                if solution.difficulty >= 22 {
+                                if solution.difficulty() >= 22 {
                                     let max_retries = 3;
                                     let mut attempt = 0;
                                     let mut submitted = false;
@@ -743,7 +769,6 @@ fn process_message(msg: Message, who: SocketAddr, client_channel: UnboundedSende
 
     ControlFlow::Continue(())
 }
-
 // 假设的提交解决方案函数
 async fn submit_solution(solution: &Solution) -> Result<(), Box<dyn std::error::Error>> {
     // 实现提交逻辑
